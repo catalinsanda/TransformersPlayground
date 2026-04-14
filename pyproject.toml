@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transformers-playground"
+version = "0.1.0"
+description = "Playing with Transformers"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [
+    { name = "Your Name", email = "you@example.com" },
+]
+dependencies = [
+    "regex>=2023.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4,<9.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-regex>=2023.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=transformers_playground --cov-report=term-missing"
