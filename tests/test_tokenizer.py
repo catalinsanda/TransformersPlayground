@@ -4,7 +4,7 @@ from pytest import FixtureRequest
 import pytest
 import string
 
-from tokenizer.tokenizer import SimpleCharacterTokenizer
+from tokenizer import SimpleCharacterTokenizer
 
 
 @pytest.fixture
