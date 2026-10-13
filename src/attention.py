@@ -19,7 +19,12 @@ class AttentionHead(nn.Module):
         K = self.W_K(x)
         V = self.W_V(x)
 
-        S = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_head)
-        A = torch.softmax(S, -1)
+        s = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_head)
+
+        T = x.shape[1]
+        mask = ~torch.tril(torch.ones(T, T, device=x.device, dtype=torch.bool))
+        s = s.masked_fill(mask, -float('inf'))
+        
+        A = torch.softmax(s, -1)
 
         return torch.matmul(A, V)
