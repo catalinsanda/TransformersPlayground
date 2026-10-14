@@ -176,3 +176,167 @@ def test_mask_preserves_zero_scores() -> None:
     )
 
     torch.testing.assert_close(output, expected)
+
+
+
+import pytest
+import torch
+
+from attention import MultiHeadAttention
+
+
+D_MODEL = 128
+NUM_HEADS = 4
+D_HEAD = D_MODEL // NUM_HEADS
+
+
+@pytest.fixture
+def attention() -> MultiHeadAttention:
+    return MultiHeadAttention(
+        d_model=D_MODEL,
+        num_heads=NUM_HEADS,
+    )
+
+
+@pytest.mark.parametrize(
+    "batch_size,seq_len",
+    [
+        (1, 1),
+        (1, 10),
+        (4, 10),
+        (8, 100),
+    ],
+)
+def test_output_shape(
+    attention: MultiHeadAttention,
+    batch_size: int,
+    seq_len: int,
+) -> None:
+    x = torch.randn(batch_size, seq_len, D_MODEL)
+
+    output = attention(x)
+
+    assert output.shape == (batch_size, seq_len, D_MODEL)
+
+
+def test_number_of_heads(attention: MultiHeadAttention) -> None:
+    assert len(attention._module_list) == NUM_HEADS
+
+    for head in attention._module_list:
+        assert head.d_head == D_HEAD
+        assert head.W_Q.in_features == D_MODEL
+        assert head.W_Q.out_features == D_HEAD
+
+
+def test_invalid_head_count() -> None:
+    with pytest.raises((ValueError, AssertionError)):
+        MultiHeadAttention(d_model=128, num_heads=3)
+
+
+def test_heads_are_independent(attention: MultiHeadAttention) -> None:
+    heads = attention._module_list
+
+    for i in range(len(heads)):
+        for j in range(i + 1, len(heads)):
+            assert heads[i].W_Q.weight is not heads[j].W_Q.weight
+            assert heads[i].W_K.weight is not heads[j].W_K.weight
+            assert heads[i].W_V.weight is not heads[j].W_V.weight
+
+
+def test_matches_manual_concatenation(
+    attention: MultiHeadAttention,
+) -> None:
+    x = torch.randn(2, 5, D_MODEL)
+
+    actual = attention(x)
+
+    head_outputs = [
+        head(x) for head in attention._module_list
+    ]
+
+    combined = torch.cat(head_outputs, dim=-1)
+    expected = attention._linear(combined)
+
+    torch.testing.assert_close(actual, expected)
+
+
+def test_causal_attention(attention: MultiHeadAttention) -> None:
+    x = torch.randn(2, 5, D_MODEL)
+
+    original = attention(x)
+
+    modified_x = x.clone()
+    modified_x[:, -1, :] += 10.0
+
+    modified = attention(modified_x)
+
+    torch.testing.assert_close(
+        original[:, :-1, :],
+        modified[:, :-1, :],
+    )
+
+
+@pytest.mark.parametrize("position", [1, 2, 3, 4])
+def test_causal_attention_all_positions(
+    attention: MultiHeadAttention,
+    position: int,
+) -> None:
+    x = torch.randn(2, 5, D_MODEL)
+
+    original = attention(x)
+
+    modified_x = x.clone()
+    modified_x[:, position, :] += 10.0
+
+    modified = attention(modified_x)
+
+    torch.testing.assert_close(
+        original[:, :position, :],
+        modified[:, :position, :],
+    )
+
+
+def test_gradients_flow(attention: MultiHeadAttention) -> None:
+    x = torch.randn(2, 5, D_MODEL)
+
+    output = attention(x)
+    loss = output.square().mean()
+    loss.backward()
+
+    for head in attention._module_list:
+        for projection in (head.W_Q, head.W_K, head.W_V):
+            grad = projection.weight.grad
+
+            assert grad is not None
+            assert torch.isfinite(grad).all()
+            assert grad.abs().sum() > 0
+
+    output_grad = attention._linear.weight.grad
+
+    assert output_grad is not None
+    assert torch.isfinite(output_grad).all()
+    assert output_grad.abs().sum() > 0
+
+
+def test_batch_independence(attention: MultiHeadAttention) -> None:
+    x = torch.randn(3, 5, D_MODEL)
+
+    batched = attention(x)
+
+    individual = torch.cat(
+        [attention(x[i:i + 1]) for i in range(3)],
+        dim=0,
+    )
+
+    torch.testing.assert_close(batched, individual)
+
+
+def test_parameters_registered(attention: MultiHeadAttention) -> None:
+    parameters = list(attention.parameters())
+
+    # Each head has Q, K, V matrices.
+    # Plus one output projection matrix.
+    expected_count = NUM_HEADS * 3 + 1
+
+    assert len(parameters) == expected_count
+    assert all(param.requires_grad for param in parameters)

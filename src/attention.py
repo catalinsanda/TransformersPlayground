@@ -23,8 +23,28 @@ class AttentionHead(nn.Module):
 
         T = x.shape[1]
         mask = ~torch.tril(torch.ones(T, T, device=x.device, dtype=torch.bool))
-        s = s.masked_fill(mask, -float('inf'))
-        
+        s = s.masked_fill(mask, -float("inf"))
+
         A = torch.softmax(s, -1)
 
         return torch.matmul(A, V)
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model: int, num_heads: int):
+        super().__init__()
+        self._d_model = d_model
+        self._num_heads = num_heads
+
+        assert d_model % num_heads == 0
+        
+        self._module_list = nn.ModuleList(
+            [AttentionHead(d_model, int(d_model // num_heads)) for _ in range(num_heads)]
+        )
+        
+        self._linear = nn.Linear(d_model, d_model, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        outputs = [head(x) for head in self._module_list]
+        combined = torch.cat(outputs, dim=-1)
+        return self._linear(combined)
