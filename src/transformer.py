@@ -20,3 +20,16 @@ class TransformerBlock(nn.Module):
         Y = H + self._mlp(self._ln2(H))
 
         return Y
+
+class TransformerStack(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, num_layers: int):
+        super().__init__()
+        self._t_stack = nn.ModuleList(
+            [TransformerBlock(d_model, num_heads) for _ in range(num_layers)]
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for block in self._t_stack:
+            x = block(x)
+            
+        return x
