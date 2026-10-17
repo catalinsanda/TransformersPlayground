@@ -38,7 +38,7 @@ def main():
         logits = model(x)
         loss = compute_loss(logits, y)
 
-        if step % 3 == 0:
+        if step % 100 == 0:
             print(f"Step {step:4d} | Loss: {loss.item():.4f}")
 
         loss.backward()
