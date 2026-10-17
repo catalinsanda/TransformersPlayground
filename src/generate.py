@@ -46,7 +46,6 @@ def main():
     
     print(text)
     
-    pass
 
 if __name__ == "__main__":
     main()
