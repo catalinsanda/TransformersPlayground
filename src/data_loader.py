@@ -2,7 +2,6 @@ from typing import List, Tuple
 import torch
 import random
 
-
 class DataLoader:
     def __init__(self, tokens: List[int], batch_size: int, seq_len: int) -> None:
         self._tokens = tokens
@@ -18,7 +17,10 @@ class DataLoader:
         x = list[torch.Tensor]()
         y = list[torch.Tensor]()
         for _ in range(self._batch_size):
-            index = random.randint(0, len(self._tokens) - self._seq_len - 2)
+            index = random.randint(
+                0, len(self._tokens) - self._seq_len - 1
+            )
+            
             x.append(
                 torch.tensor(
                     self._tokens[index : index + self._seq_len], dtype=torch.long

@@ -18,10 +18,24 @@
             }
         },
         {
-            "name": "Train Transformer",
+            "name": "Train Transformer Simple Exmple",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/train.py",
+            "program": "${workspaceFolder}/src/train_fox.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Transformer Tiny Shakespeare",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/train_shakespeare.py",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
