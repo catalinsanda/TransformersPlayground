@@ -41,8 +41,8 @@ def main():
         if step % 100 == 0:
             print(f"Step {step:4d} | Loss: {loss.item():.4f}")
 
-        loss.backward()
-        optimizer.step()
+        loss.backward() # pyright: ignore[reportUnknownMemberType]
+        optimizer.step() # pyright: ignore[reportUnknownMemberType]
 
     print(f"Final loss: {loss.item():.4f}")
 
