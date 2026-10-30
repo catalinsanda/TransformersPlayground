@@ -1,0 +1,39 @@
+import torch
+from torch import nn
+
+BASE = 10000
+
+
+class RotaryPositionalEmbedding(nn.Module):
+    def __init__(self, d_head: int):
+        super().__init__()
+        self._d_head = d_head
+        assert d_head > 0 and d_head % 2 == 0
+
+    def build_rotation_matrix(self, seq_len: int, device: torch.device) -> torch.Tensor:
+        i = torch.arange(self._d_head // 2, device=device, dtype=torch.float32)
+        freq = BASE ** (-2 * i / self._d_head)
+
+        p = torch.arange(seq_len, device=device, dtype=torch.float32)
+        theta = p[:, None] * freq[None, :]
+
+        return torch.stack(
+            (
+                torch.stack([torch.cos(theta), -torch.sin(theta)], dim=-1),
+                torch.stack([torch.sin(theta), torch.cos(theta)], dim=-1),
+            ),
+            dim=-2,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.dim() == 3
+        assert x.size(-1) == self._d_head
+        original_dtype = x.dtype
+
+        x = x.to(torch.float32)
+        a = torch.unflatten(x, -1, (-1, 2))
+        a = a.unsqueeze(-1)
+        a = torch.matmul(self.build_rotation_matrix(a.size(1), x.device), a)
+        a = a.squeeze(-1)
+        a = torch.flatten(a, -2)
+        return a.to(original_dtype)

@@ -64,14 +64,15 @@ def test_matches_pytorch_reference(attention_head: AttentionHead) -> None:
 
     actual = attention_head(x)
 
-    Q = attention_head.W_Q(x)
-    K = attention_head.W_K(x)
+    Q = attention_head._rope(attention_head.W_Q(x))
+    K = attention_head._rope(attention_head.W_K(x))
     V = attention_head.W_V(x)
 
-    expected = F.scaled_dot_product_attention(Q, K, V, dropout_p=0.0, is_causal=True)
+    expected = F.scaled_dot_product_attention(
+        Q, K, V, dropout_p=0.0, is_causal=True
+    )
 
     torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
-
 
 def test_gradients_flow(attention_head: AttentionHead) -> None:
     x = torch.randn(2, 5, D_MODEL)

@@ -115,6 +115,8 @@ def main() -> None:
     evaluations_without_improvement = 0
 
     if checkpoint_path.is_file():
+        print(f"Loading checkpoint from: {checkpoint_path}")
+        
         checkpoint_data = torch.load(
             checkpoint_path,
             map_location=device,
