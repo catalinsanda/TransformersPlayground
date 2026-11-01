@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from attention import AttentionHead
+from rope import RotaryPositionalEmbedding
 
 D_MODEL = 128
 D_HEAD = 32
@@ -12,7 +13,9 @@ D_HEAD = 32
 
 @pytest.fixture
 def attention_head() -> AttentionHead:
-    return AttentionHead(d_model=D_MODEL, d_head=D_HEAD)
+    return AttentionHead(
+        d_model=D_MODEL, d_head=D_HEAD, rope=RotaryPositionalEmbedding(D_HEAD)
+    )
 
 
 @pytest.mark.parametrize(
@@ -68,11 +71,10 @@ def test_matches_pytorch_reference(attention_head: AttentionHead) -> None:
     K = attention_head._rope(attention_head.W_K(x))
     V = attention_head.W_V(x)
 
-    expected = F.scaled_dot_product_attention(
-        Q, K, V, dropout_p=0.0, is_causal=True
-    )
+    expected = F.scaled_dot_product_attention(Q, K, V, dropout_p=0.0, is_causal=True)
 
     torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+
 
 def test_gradients_flow(attention_head: AttentionHead) -> None:
     x = torch.randn(2, 5, D_MODEL)
@@ -154,7 +156,8 @@ def test_first_token_only_attends_to_itself(
 
 
 def test_mask_preserves_zero_scores() -> None:
-    head = AttentionHead(d_model=4, d_head=2)
+    HEAD = 2
+    head = AttentionHead(d_model=4, d_head=HEAD, rope=RotaryPositionalEmbedding(HEAD))
 
     with torch.no_grad():
         head.W_Q.weight.zero_()
@@ -179,7 +182,6 @@ def test_mask_preserves_zero_scores() -> None:
     torch.testing.assert_close(output, expected)
 
 
-
 import pytest
 import torch
 
@@ -194,8 +196,7 @@ D_HEAD = D_MODEL // NUM_HEADS
 @pytest.fixture
 def attention() -> MultiHeadAttention:
     return MultiHeadAttention(
-        d_model=D_MODEL,
-        num_heads=NUM_HEADS,
+        d_model=D_MODEL, num_heads=NUM_HEADS, rope=RotaryPositionalEmbedding(D_HEAD)
     )
 
 
@@ -231,7 +232,9 @@ def test_number_of_heads(attention: MultiHeadAttention) -> None:
 
 def test_invalid_head_count() -> None:
     with pytest.raises((ValueError, AssertionError)):
-        MultiHeadAttention(d_model=128, num_heads=3)
+        MultiHeadAttention(
+            d_model=128, num_heads=3, rope=RotaryPositionalEmbedding(128 // 3)
+        )
 
 
 def test_heads_are_independent(attention: MultiHeadAttention) -> None:
@@ -251,9 +254,7 @@ def test_matches_manual_concatenation(
 
     actual = attention(x)
 
-    head_outputs = [
-        head(x) for head in attention._module_list
-    ]
+    head_outputs = [head(x) for head in attention._module_list]
 
     combined = torch.cat(head_outputs, dim=-1)
     expected = attention._linear(combined)
@@ -325,7 +326,7 @@ def test_batch_independence(attention: MultiHeadAttention) -> None:
     batched = attention(x)
 
     individual = torch.cat(
-        [attention(x[i:i + 1]) for i in range(3)],
+        [attention(x[i : i + 1]) for i in range(3)],
         dim=0,
     )
 

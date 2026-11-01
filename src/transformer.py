@@ -3,14 +3,15 @@ from torch import nn
 
 from attention import MultiHeadAttention
 from feed_forward import FeedForward
+from rope import RotaryPositionalEmbedding
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model: int, num_heads: int):
+    def __init__(self, d_model: int, num_heads: int, rope: RotaryPositionalEmbedding):
         super().__init__()
 
         self._ln1 = nn.LayerNorm(d_model)
-        self._mha = MultiHeadAttention(d_model, num_heads)
+        self._mha = MultiHeadAttention(d_model, num_heads, rope)
 
         self._ln2 = nn.LayerNorm(d_model)
         self._mlp = FeedForward(d_model, 4 * d_model)
@@ -21,15 +22,22 @@ class TransformerBlock(nn.Module):
 
         return Y
 
+
 class TransformerStack(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, num_layers: int):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        num_layers: int,
+        rope: RotaryPositionalEmbedding,
+    ):
         super().__init__()
         self._t_stack = nn.ModuleList(
-            [TransformerBlock(d_model, num_heads) for _ in range(num_layers)]
+            [TransformerBlock(d_model, num_heads, rope) for _ in range(num_layers)]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for block in self._t_stack:
             x = block(x)
-            
+
         return x

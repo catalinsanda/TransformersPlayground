@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from rope import RotaryPositionalEmbedding
 from transformer import TransformerBlock
 
 
@@ -13,7 +14,7 @@ SEQ_LEN = 8
 @pytest.fixture
 def block() -> TransformerBlock:
     torch.manual_seed(42)
-    return TransformerBlock(D_MODEL, NUM_HEADS)
+    return TransformerBlock(D_MODEL, NUM_HEADS, RotaryPositionalEmbedding(D_MODEL // NUM_HEADS))
 
 
 def test_output_shape(block: TransformerBlock) -> None:

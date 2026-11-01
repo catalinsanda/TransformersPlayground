@@ -2,14 +2,20 @@ import torch
 from torch import nn
 
 from embeddings import EmbeddingLayer
+from rope import RotaryPositionalEmbedding
 from transformer import TransformerStack
 
 class DecoderOnlyTransformer(nn.Module):
     def __init__(self, vocab_size:int, d_model:int, num_heads:int, num_layers:int, max_seq_len:int):
         super().__init__()
+
+        assert d_model % num_heads == 0
+        d_head = d_model // num_heads
+        
+        self._rope = RotaryPositionalEmbedding(d_head)
         
         self._embedings = EmbeddingLayer(vocab_size, d_model, max_seq_len)
-        self._transformer_stack = TransformerStack(d_model, num_heads, num_layers)
+        self._transformer_stack = TransformerStack(d_model, num_heads, num_layers, rope = self._rope)
         self._layer_norm = nn.LayerNorm(d_model)
         self._token_projection = nn.Linear(d_model, vocab_size, bias=False)
         

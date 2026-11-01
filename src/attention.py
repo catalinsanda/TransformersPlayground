@@ -6,7 +6,7 @@ from rope import RotaryPositionalEmbedding
 
 
 class AttentionHead(nn.Module):
-    def __init__(self, d_model: int, d_head: int):
+    def __init__(self, d_model: int, d_head: int, rope: RotaryPositionalEmbedding):
         super().__init__()
 
         self.d_model = d_model
@@ -15,7 +15,7 @@ class AttentionHead(nn.Module):
         self.W_Q = nn.Linear(d_model, d_head, bias=False)
         self.W_K = nn.Linear(d_model, d_head, bias=False)
         self.W_V = nn.Linear(d_model, d_head, bias=False)
-        self._rope = RotaryPositionalEmbedding(d_head)
+        self._rope = rope
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         q = self._rope(self.W_Q(x))
@@ -34,7 +34,7 @@ class AttentionHead(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model: int, num_heads: int):
+    def __init__(self, d_model: int, num_heads: int, rope: RotaryPositionalEmbedding):
         super().__init__()
         self._d_model = d_model
         self._num_heads = num_heads
@@ -46,7 +46,7 @@ class MultiHeadAttention(nn.Module):
         assert self._d_head % 2 == 0
         
         self._module_list = nn.ModuleList(
-            [AttentionHead(d_model, int(d_model // num_heads)) for _ in range(num_heads)]
+            [AttentionHead(d_model, int(d_model // num_heads), rope) for _ in range(num_heads)]
         )
         
         self._linear = nn.Linear(d_model, d_model, bias=False)

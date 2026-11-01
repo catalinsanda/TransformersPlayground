@@ -3,6 +3,7 @@ import pytest
 import torch
 from torch import nn
 
+from rope import RotaryPositionalEmbedding
 from transformer import TransformerStack
 
 
@@ -16,7 +17,7 @@ SEQ_LEN = 8
 @pytest.fixture
 def stack() -> TransformerStack:
     torch.manual_seed(42)
-    return TransformerStack(D_MODEL, NUM_HEADS, NUM_LAYERS)
+    return TransformerStack(D_MODEL, NUM_HEADS, NUM_LAYERS, RotaryPositionalEmbedding(D_MODEL // NUM_HEADS))
 
 
 def test_output_shape(stack: TransformerStack) -> None:
@@ -29,7 +30,7 @@ def test_output_shape(stack: TransformerStack) -> None:
 
 @pytest.mark.parametrize("num_layers", [1, 2, 4, 8])
 def test_number_of_layers(num_layers: int) -> None:
-    stack = TransformerStack(D_MODEL, NUM_HEADS, num_layers)
+    stack = TransformerStack(D_MODEL, NUM_HEADS, num_layers,  RotaryPositionalEmbedding(D_MODEL // NUM_HEADS))
 
     assert isinstance(stack._t_stack, nn.ModuleList)
     assert len(stack._t_stack) == num_layers

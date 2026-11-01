@@ -31,9 +31,23 @@ class RotaryPositionalEmbedding(nn.Module):
         original_dtype = x.dtype
 
         x = x.to(torch.float32)
+
+        self.register_buffer(
+            "_rotations",
+            torch.empty(0),
+            persistent=False,
+        )
+
         a = torch.unflatten(x, -1, (-1, 2))
         a = a.unsqueeze(-1)
-        a = torch.matmul(self.build_rotation_matrix(a.size(1), x.device), a)
+
+        seq_len = a.size(1)
+        if self._rotations.size(0) < seq_len or self._rotations.device != x.device:
+            self._rotations = self.build_rotation_matrix(seq_len, x.device)
+        rotations = self._rotations[:seq_len]
+
+        a = torch.matmul(rotations, a)
+
         a = a.squeeze(-1)
         a = torch.flatten(a, -2)
         return a.to(original_dtype)
