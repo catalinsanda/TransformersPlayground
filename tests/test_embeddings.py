@@ -24,15 +24,6 @@ def test_embedding_shape(embedding_layer: EmbeddingLayer) -> None:
     assert x.shape == (2, 3, EMBEDDING_DIM)
 
 
-def test_embed_pos_is_different(embedding_layer: EmbeddingLayer) -> None:
-    x = torch.tensor([[5, 5, 5]], dtype=torch.long)
-    x = cast(torch.Tensor, embedding_layer(x))
-
-    assert not torch.equal(x[0, 0], x[0, 1])
-    assert not torch.equal(x[0, 1], x[0, 2])
-    assert not torch.equal(x[0, 0], x[0, 2])
-
-
 def test_same_token_same_position_across_batch_is_equal(
     embedding_layer: EmbeddingLayer,
 ) -> None:

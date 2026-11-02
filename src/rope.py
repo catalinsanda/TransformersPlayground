@@ -10,6 +10,12 @@ class RotaryPositionalEmbedding(nn.Module):
         self._d_head = d_head
         assert d_head > 0 and d_head % 2 == 0
 
+        self.register_buffer(
+            "_rotations",
+            torch.empty(0),
+            persistent=False,
+        )
+
     def build_rotation_matrix(self, seq_len: int, device: torch.device) -> torch.Tensor:
         i = torch.arange(self._d_head // 2, device=device, dtype=torch.float32)
         freq = BASE ** (-2 * i / self._d_head)
@@ -31,13 +37,6 @@ class RotaryPositionalEmbedding(nn.Module):
         original_dtype = x.dtype
 
         x = x.to(torch.float32)
-
-        self.register_buffer(
-            "_rotations",
-            torch.empty(0),
-            persistent=False,
-        )
-
         a = torch.unflatten(x, -1, (-1, 2))
         a = a.unsqueeze(-1)
 

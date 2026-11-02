@@ -7,7 +7,6 @@ class EmbeddingLayer(torch.nn.Module):
         
         self.max_seq_len = max_seq_len
         self.token_embeddings = nn.Embedding(vocab_size, embedding_dim)
-        self.positional_embeddings = nn.Embedding(max_seq_len, embedding_dim)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
 
@@ -16,10 +15,4 @@ class EmbeddingLayer(torch.nn.Module):
         _, T = x.shape
         assert T <= self.max_seq_len
         
-        t_e = self.token_embeddings(x)
-        
-        positions = torch.arange(T, device=x.device)
-        p_e = self.positional_embeddings(positions)
-        
-        return t_e + p_e
-        
+        return self.token_embeddings(x)   
