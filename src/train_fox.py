@@ -64,16 +64,14 @@ def main():
         device=device,
         dtype=torch.float32,
     )
-    
-    kv_cache = None
 
     output = generate(
         model,
         torch.tensor([prompt], dtype=torch.long, device=device),
         len(input) - len(prompt),
         64,
-        kv_cache,
-        1.0,
+        kv_cache=kv_cache,
+        temperature=1.0,
     )
 
     decoded_input: List[int] = output[0].cpu().tolist()  # type: ignore

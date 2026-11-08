@@ -13,6 +13,7 @@ def generate(
     tokens: torch.Tensor,
     max_new_tokens: int,
     max_seq_len: int,
+    *,
     kv_cache: ModelKVCache | None = None,
     temperature: float = 1.0,
 ) -> torch.Tensor:
@@ -22,8 +23,14 @@ def generate(
         raise ValueError("Temperature must be positive")
 
     with torch.inference_mode():
-        for _ in range(max_new_tokens):
-            context = tokens[:, -max_seq_len:]
+        for step in range(max_new_tokens):
+            if kv_cache is None:
+                context = tokens[:, -max_seq_len:]
+            elif step == 0:
+                context = tokens
+            else:
+                context = tokens[:, -1:]
+
             logits = model(context, kv_cache)
             probs = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
             next_token = torch.multinomial(probs, num_samples=1)

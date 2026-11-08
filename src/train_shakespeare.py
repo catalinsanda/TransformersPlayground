@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from typing import List
 
@@ -7,6 +6,7 @@ import torch
 from data_loader import DataLoader
 from decoder_transformer import DecoderOnlyTransformer
 from generate import generate
+from kv_cache import ModelKVCache
 from loss import compute_loss, estimate_loss
 from tokenizer import SimpleCharacterTokenizer
 
@@ -52,9 +52,7 @@ DATASET_PATH = "data/tinyshakespeare.txt"
 
 
 def main() -> None:
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Load dataset
@@ -96,10 +94,7 @@ def main() -> None:
         max_seq_len=MAX_SEQ_LEN,
     ).to(device)
 
-    print(
-        f"Model parameters: "
-        f"{sum(p.numel() for p in model.parameters()):,}"
-    )
+    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Optimizer
     optimizer = torch.optim.AdamW(
@@ -116,7 +111,7 @@ def main() -> None:
 
     if checkpoint_path.is_file():
         print(f"Loading checkpoint from: {checkpoint_path}")
-        
+
         checkpoint_data = torch.load(
             checkpoint_path,
             map_location=device,
@@ -155,12 +150,8 @@ def main() -> None:
         optimizer.step()  # pyright: ignore[reportUnknownMemberType]
 
         if step % EVAL_INTERVAL == 0 or step == TRAIN_STEPS - 1:
-            train_loss = estimate_loss(
-                model, train_loader, device, EVAL_BATCHES
-            )
-            val_loss = estimate_loss(
-                model, val_loader, device, EVAL_BATCHES
-            )
+            train_loss = estimate_loss(model, train_loader, device, EVAL_BATCHES)
+            val_loss = estimate_loss(model, val_loader, device, EVAL_BATCHES)
 
             last_loss = loss.item()
 
@@ -186,10 +177,7 @@ def main() -> None:
                     checkpoint_path,
                 )
 
-                print(
-                    f"Saved checkpoint at step {step}, "
-                    f"val_loss={best_val_loss:.4f}"
-                )
+                print(f"Saved checkpoint at step {step}, val_loss={best_val_loss:.4f}")
 
             else:
                 evaluations_without_improvement += 1
@@ -200,10 +188,7 @@ def main() -> None:
                     f"{EARLY_STOP_PATIENCE}"
                 )
 
-                if (
-                    evaluations_without_improvement
-                    >= EARLY_STOP_PATIENCE
-                ):
+                if evaluations_without_improvement >= EARLY_STOP_PATIENCE:
                     print(
                         f"Early stopping at step {step}. "
                         f"Best validation loss: {best_val_loss:.4f}"
@@ -233,6 +218,16 @@ def main() -> None:
     # Generate text
     prompt = tokenizer.encode(GENERATION_PROMPT)
 
+    # The cache
+    kv_cache = ModelKVCache(
+        NUM_LAYERS,
+        NUM_HEADS,
+        1,
+        D_MODEL // NUM_HEADS,
+        device=device,
+        dtype=torch.float32,
+    )
+
     output = generate(
         model,
         torch.tensor(
@@ -242,7 +237,8 @@ def main() -> None:
         ),
         MAX_NEW_TOKENS,
         MAX_SEQ_LEN,
-        TEMPERATURE,
+        kv_cache=kv_cache,
+        temperature=TEMPERATURE,
     )
 
     decoded: List[int] = output[0].cpu().tolist()  # type: ignore
