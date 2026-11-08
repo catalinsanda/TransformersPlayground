@@ -31,7 +31,7 @@ class RotaryPositionalEmbedding(nn.Module):
             dim=-2,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, position_offset: int | None = None) -> torch.Tensor:
         assert x.dim() == 3
         assert x.size(-1) == self._d_head
         original_dtype = x.dtype
@@ -40,10 +40,10 @@ class RotaryPositionalEmbedding(nn.Module):
         a = torch.unflatten(x, -1, (-1, 2))
         a = a.unsqueeze(-1)
 
-        seq_len = a.size(1)
+        seq_len = a.size(1) + (position_offset if position_offset else 0)
         if self._rotations.size(0) < seq_len or self._rotations.device != x.device:
             self._rotations = self.build_rotation_matrix(seq_len, x.device)
-        rotations = self._rotations[:seq_len]
+        rotations = self._rotations[position_offset:seq_len]
 
         a = torch.matmul(rotations, a)
 

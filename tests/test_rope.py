@@ -139,3 +139,18 @@ def test_different_positions_produce_different_rotations():
 
     assert not torch.allclose(y[0, 0], y[0, 1])
     assert not torch.allclose(y[0, 1], y[0, 2])
+
+
+def test_position_offset_matches_full_sequence() -> None:
+    rope = RotaryPositionalEmbedding(d_head=32)
+    x = torch.randn(2, 10, 32)
+
+    expected = rope(x, 0)
+
+    first = rope(x[:, :3], 0)
+    second = rope(x[:, 3:7], 3)
+    third = rope(x[:, 7:], 7)
+
+    actual = torch.cat((first, second, third), dim=1)
+
+    torch.testing.assert_close(actual, expected)

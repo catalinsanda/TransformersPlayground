@@ -1,8 +1,10 @@
 import torch
 import string
+from functools import partial
 
 from decoder_transformer import DecoderOnlyTransformer
 from generate import generate
+from kv_cache import ModelKVCache
 from loss import compute_loss
 from tokenizer import SimpleCharacterTokenizer
 from typing import List
@@ -10,6 +12,10 @@ from typing import List
 
 def main():
     TRAIN_STEPS = 1000
+    D_MODEL = 64
+    NUM_HEADS = 4
+    NUM_LAYERS = 2
+    MAX_SEQ_LENGTH = 64
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -21,7 +27,9 @@ def main():
     x = torch.tensor([input[:-1]], dtype=torch.long, device=device)
     y = torch.tensor([input[1:]], dtype=torch.long, device=device)
 
-    model = DecoderOnlyTransformer(len(vocab), 64, 4, 2, 64).to(device)
+    model = DecoderOnlyTransformer(
+        len(vocab), D_MODEL, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LENGTH
+    ).to(device)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -41,21 +49,37 @@ def main():
         if step % 100 == 0:
             print(f"Step {step:4d} | Loss: {loss.item():.4f}")
 
-        loss.backward() # pyright: ignore[reportUnknownMemberType]
-        optimizer.step() # pyright: ignore[reportUnknownMemberType]
+        loss.backward()  # pyright: ignore[reportUnknownMemberType]
+        optimizer.step()  # pyright: ignore[reportUnknownMemberType]
 
     print(f"Final loss: {loss.item():.4f}")
 
-    prompt = tokenizer.encode("The quick ")    
+    prompt = tokenizer.encode("The quick ")
+
+    kv_cache = ModelKVCache(
+        NUM_LAYERS,
+        NUM_HEADS,
+        1,
+        D_MODEL // NUM_HEADS,
+        device=device,
+        dtype=torch.float32,
+    )
     
+    kv_cache = None
+
     output = generate(
-        model, torch.tensor([prompt], dtype=torch.long, device=device), len(input) - len(prompt), 64, 1.0
+        model,
+        torch.tensor([prompt], dtype=torch.long, device=device),
+        len(input) - len(prompt),
+        64,
+        kv_cache,
+        1.0,
     )
 
-    decoded_input: List[int] = output[0].cpu().tolist() # type: ignore
+    decoded_input: List[int] = output[0].cpu().tolist()  # type: ignore
     text = tokenizer.decode(decoded_input)
 
-    print(f"Output: \"{text}\"")
+    print(f'Output: "{text}"')
 
 
 if __name__ == "__main__":

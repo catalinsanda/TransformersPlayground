@@ -5,6 +5,7 @@ from torch import nn
 
 from rope import RotaryPositionalEmbedding
 from transformer import TransformerStack
+from kv_cache import ModelKVCache
 
 
 D_MODEL = 32
@@ -167,3 +168,49 @@ def test_parameters_are_registered(
     for block in stack._t_stack:
         for param in block.parameters():
             assert id(param) in registered_ids
+
+
+def test_stack_cache_matches_full_sequence(
+    stack: TransformerStack,
+) -> None:
+    x = torch.randn(BATCH_SIZE, SEQ_LEN, D_MODEL)
+
+    cache = ModelKVCache(
+        NUM_LAYERS,
+        NUM_HEADS,
+        BATCH_SIZE,
+        D_MODEL // NUM_HEADS,
+        x.device,
+        x.dtype,
+    )
+
+    stack.eval()
+
+    with torch.inference_mode():
+        expected = stack(x)
+
+        outputs = []
+        start = 0
+
+        for end in (3, 7, SEQ_LEN):
+            output = stack(x[:, start:end], cache)
+            outputs.append(output)
+
+            for layer_cache in cache.layers:
+                for head_cache in layer_cache.heads:
+                    assert head_cache.key.shape[1] == end
+                    assert head_cache.value.shape[1] == end
+
+            start = end
+
+        actual = torch.cat(outputs, dim=1)
+
+    torch.testing.assert_close(
+        actual, expected, rtol=1e-5, atol=1e-5
+    )
+
+    assert len(cache.layers) == NUM_LAYERS
+    assert all(
+        len(layer.heads) == NUM_HEADS
+        for layer in cache.layers
+    )

@@ -3,6 +3,7 @@ import torch
 
 from rope import RotaryPositionalEmbedding
 from transformer import TransformerBlock
+from kv_cache import LayerKVCache
 
 
 D_MODEL = 32
@@ -14,7 +15,9 @@ SEQ_LEN = 8
 @pytest.fixture
 def block() -> TransformerBlock:
     torch.manual_seed(42)
-    return TransformerBlock(D_MODEL, NUM_HEADS, RotaryPositionalEmbedding(D_MODEL // NUM_HEADS))
+    return TransformerBlock(
+        D_MODEL, NUM_HEADS, RotaryPositionalEmbedding(D_MODEL // NUM_HEADS)
+    )
 
 
 def test_output_shape(block: TransformerBlock) -> None:
@@ -119,3 +122,35 @@ def test_pre_ln_computation(block: TransformerBlock) -> None:
         actual = block(x)
 
     torch.testing.assert_close(actual, expected)
+
+
+def test_block_cache_matches_full_sequence(
+    block: TransformerBlock,
+) -> None:
+    x = torch.randn(BATCH_SIZE, SEQ_LEN, D_MODEL)
+
+    cache = LayerKVCache(
+        NUM_HEADS,
+        BATCH_SIZE,
+        D_MODEL // NUM_HEADS,
+        x.device,
+        x.dtype,
+    )
+
+    block.eval()
+
+    with torch.inference_mode():
+        expected = block(x)
+
+        first = block(x[:, :3], cache)
+        second = block(x[:, 3:], cache)
+
+        actual = torch.cat((first, second), dim=1)
+
+    torch.testing.assert_close(
+        actual, expected, rtol=1e-5, atol=1e-5
+    )
+
+    for head_cache in cache.heads:
+        assert head_cache.key.shape[1] == SEQ_LEN
+        assert head_cache.value.shape[1] == SEQ_LEN

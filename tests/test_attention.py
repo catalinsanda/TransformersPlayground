@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from attention import AttentionHead
 from rope import RotaryPositionalEmbedding
+from kv_cache import HeadKVCache, LayerKVCache
 
 D_MODEL = 128
 D_HEAD = 32
@@ -342,3 +343,92 @@ def test_parameters_registered(attention: MultiHeadAttention) -> None:
 
     assert len(parameters) == expected_count
     assert all(param.requires_grad for param in parameters)
+
+
+
+@pytest.mark.parametrize(
+    "batch_size,split",
+    [
+        (1, 1),
+        (1, 7),
+        (2, 7),
+    ],
+)
+def test_head_cache_matches_full_sequence(
+    attention_head: AttentionHead,
+    batch_size: int,
+    split: int,
+) -> None:
+    x = torch.randn(batch_size, 10, D_MODEL)
+    cache = HeadKVCache(batch_size, D_HEAD, x.device, x.dtype)
+
+    attention_head.eval()
+
+    with torch.inference_mode():
+        expected = attention_head(x)
+
+        first = attention_head(x[:, :split], cache)
+        second = attention_head(x[:, split:], cache)
+
+        actual = torch.cat((first, second), dim=1)
+
+    torch.testing.assert_close(
+        actual, expected, rtol=1e-5, atol=1e-5
+    )
+
+    assert cache.key.shape == (batch_size, 10, D_HEAD)
+    assert cache.value.shape == (batch_size, 10, D_HEAD)
+
+
+
+def test_head_cache_contents(
+    attention_head: AttentionHead,
+) -> None:
+    x = torch.randn(2, 10, D_MODEL)
+    cache = HeadKVCache(2, D_HEAD, x.device, x.dtype)
+
+    with torch.inference_mode():
+        attention_head(x[:, :7], cache)
+
+        assert cache.key.shape == (2, 7, D_HEAD)
+        assert cache.value.shape == (2, 7, D_HEAD)
+
+        attention_head(x[:, 7:], cache)
+
+        expected_k = attention_head._rope(
+            attention_head.W_K(x), 0
+        )
+        expected_v = attention_head.W_V(x)
+
+    torch.testing.assert_close(cache.key, expected_k)
+    torch.testing.assert_close(cache.value, expected_v)
+
+
+def test_multi_head_cache_matches_full_sequence(
+    attention: MultiHeadAttention,
+) -> None:
+    x = torch.randn(2, 10, D_MODEL)
+    cache = LayerKVCache(
+        NUM_HEADS, 2, D_HEAD, x.device, x.dtype
+    )
+
+    attention.eval()
+
+    with torch.inference_mode():
+        expected = attention(x)
+
+        first = attention(x[:, :6], cache)
+        second = attention(x[:, 6:9], cache)
+        third = attention(x[:, 9:], cache)
+
+        actual = torch.cat((first, second, third), dim=1)
+
+    torch.testing.assert_close(
+        actual, expected, rtol=1e-5, atol=1e-5
+    )
+
+    assert len(cache.heads) == NUM_HEADS
+
+    for head_cache in cache.heads:
+        assert head_cache.key.shape == (2, 10, D_HEAD)
+        assert head_cache.value.shape == (2, 10, D_HEAD)
