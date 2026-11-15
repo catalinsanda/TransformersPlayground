@@ -50,7 +50,11 @@ def main():
     model = DecoderOnlyTransformer(len(vocab), 256, 8, 16, 1024).to(device)
 
     output = generate(
-        model, torch.tensor([input], dtype=torch.long, device=device), 64, 1024, 1.0
+        model,
+        torch.tensor([input], dtype=torch.long, device=device),
+        64,
+        1024,
+        temperature=1.0,
     )
 
     decoded_input: List[int] = cast(List[int], output[0].int().tolist())  # type: ignore

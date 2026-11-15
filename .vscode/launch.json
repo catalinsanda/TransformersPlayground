@@ -44,6 +44,20 @@
                 "PYTHONPATH": "${workspaceFolder}/src",
                 "PYTHONUNBUFFERED": "1"
             }
+        },
+        {
+            "name": "Train Tokenizer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/train_tokenizer.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1"
+            }
         }
     ]
 }

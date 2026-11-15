@@ -1,6 +1,5 @@
 import torch
 import string
-from functools import partial
 
 from decoder_transformer import DecoderOnlyTransformer
 from generate import generate

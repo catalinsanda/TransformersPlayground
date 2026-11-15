@@ -395,7 +395,7 @@ def test_head_cache_contents(
 
         attention_head(x[:, 7:], cache)
 
-        expected_k = attention_head._rope(
+        expected_k = attention_head._rope( # type: ignore
             attention_head.W_K(x), 0
         )
         expected_v = attention_head.W_V(x)
