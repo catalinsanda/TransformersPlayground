@@ -85,6 +85,10 @@ def main(tokenizer_choice: TokenizerChoices = TokenizerChoices.simple) -> None:
             tokenizer = HFTokenizer(str(path))
 
     print(f"Found {tokenizer.vocab_size} distinct tokens.")
+    
+    num_chars = len(full_text)
+    num_tokens = len(tokenizer.encode(full_text))
+    print(f"Characters per token: {num_chars / num_tokens:.3f}")
 
     tokens = tokenizer.encode(full_text)
 
