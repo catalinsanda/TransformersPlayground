@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List
 
+import typer
 import torch
 
 from data_loader import DataLoader
@@ -8,8 +9,17 @@ from decoder_transformer import DecoderOnlyTransformer
 from generate import generate
 from kv_cache import ModelKVCache
 from loss import compute_loss, estimate_loss
-from tokenizer import SimpleCharacterTokenizer
+from tokenizer import HFTokenizer, SimpleCharacterTokenizer
 
+from enum import StrEnum
+
+
+class TokenizerChoices(StrEnum):
+    simple = "simple"
+    bpe = "bpe"
+
+
+app = typer.Typer()
 
 # ============================================================
 # Hyperparameters
@@ -51,7 +61,8 @@ DATASET_PATH = "data/tinyshakespeare.txt"
 # ============================================================
 
 
-def main() -> None:
+@app.command()
+def main(tokenizer_choice: TokenizerChoices = TokenizerChoices.simple) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -60,10 +71,20 @@ def main() -> None:
         full_text = f.read()
 
     # Tokenizer
-    tokenizer = SimpleCharacterTokenizer()
-    tokenizer.build_vocab(full_text)
+    match tokenizer_choice:
+        case TokenizerChoices.simple:
+            tokenizer = SimpleCharacterTokenizer()
+            tokenizer.build_vocab(full_text)
+        case TokenizerChoices.bpe:
+            path = (
+                Path(__file__).resolve().parents[1]
+                / "data"
+                / "tokenizers"
+                / "bpe_4096.json"
+            )
+            tokenizer = HFTokenizer(str(path))
 
-    print(f"Found {tokenizer.vocab_size} characters in the dataset")
+    print(f"Found {tokenizer.vocab_size} distinct tokens.")
 
     tokens = tokenizer.encode(full_text)
 
@@ -103,7 +124,7 @@ def main() -> None:
         weight_decay=WEIGHT_DECAY,
     )
 
-    checkpoint_path = Path(CHECKPOINT_FILE)
+    checkpoint_path = Path(f"{tokenizer_choice}_{CHECKPOINT_FILE}")
 
     start_step = 0
     best_val_loss = float("inf")
@@ -248,4 +269,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app()
