@@ -58,6 +58,20 @@
                 "PYTHONPATH": "${workspaceFolder}/src",
                 "PYTHONUNBUFFERED": "1"
             }
+        },
+            {
+            "name": "Tokenize Datasets",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tokenize_finewebeud.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1"
+            }
         }
     ]
 }

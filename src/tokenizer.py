@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Sequence
 from tokenizers import Tokenizer as HuggingFaceTokenizer
 
 
@@ -53,6 +54,12 @@ class HFTokenizer(Tokenizer):
 
     def encode(self, text: str) -> list[int]:
         return self._tokenizer.encode(text).ids
+
+    def encode_batch(self, batch: Sequence[str]) -> list[list[int]]:
+        return [batch.ids for batch in self._tokenizer.encode_batch(batch)]
+
+    def token_to_id(self, token_id: str) -> int | None:
+        return self._tokenizer.token_to_id(token_id)
 
     def decode(self, tokens: list[int]) -> str:
         return self._tokenizer.decode(tokens, skip_special_tokens=False)
