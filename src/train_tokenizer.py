@@ -4,6 +4,8 @@ from datasets import IterableDataset, load_dataset
 
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders
 
+VOCAB_SIZE = 8192
+
 
 def extract_text(iterable: Iterable[Any], path: List[str]) -> Iterable[Any]:
     for object in iterable:
@@ -59,7 +61,7 @@ def main() -> None:
     tokenizer.decoder = decoders.ByteLevel()
 
     trainer = trainers.BpeTrainer(
-        vocab_size=4096,
+        vocab_size=VOCAB_SIZE,
         special_tokens=[
             "[UNK]",
             "[PAD]",
@@ -75,14 +77,14 @@ def main() -> None:
     tokenizer.train_from_iterator(
         build_data_iterator(
             [
-                (pretrain_data, 80 * 1024 * 1024, ["text"]),
-                (chat_data, 20 * 1024 * 1024, ["messages", "content"]),
+                (pretrain_data, 2 * 80 * 1024 * 1024, ["text"]),
+                (chat_data, 2 * 20 * 1024 * 1024, ["messages", "content"]),
             ]
         ),
         trainer=trainer,
     )
 
-    tokenizer.save("data/tokenizers/bpe_4096.json")
+    tokenizer.save(f"data/tokenizers/bpe_{VOCAB_SIZE}.json")
 
 
 if __name__ == "__main__":
